@@ -317,14 +317,17 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                         @Override
                         public void onWritePossible() throws IOException {
                             if (internalBuffer == null) {
+                                LOG.info("Write possible, requesting more from controller");
                                 s.request(1);
                             } else {
+                                LOG.info("Write possible, writing some");
                                 writeSome();
                             }
                         }
 
                         @Override
                         public void onError(Throwable t) {
+                            LOG.info("Jetty threw an exception", t);
                             handleError(t);
                         }
                     });
@@ -341,6 +344,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                         boolean writeBuffer = writeBufferAvailable;
                         if (writeBuffer) {
                             try {
+                                LOG.info("Writing internal buffer");
                                 outputStream.write(internalBuffer);
                             } catch (NoSuchMethodError e) {
                                 writeBuffer = false;
@@ -359,6 +363,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                     if (!inputReady) {
                         internalBuffer = null;
                         if (upstreamComplete) {
+                            LOG.info("Received complete from upstream");
                             completion.complete(null);
                         } else if (outputReady) {
                             subscription.request(1);
@@ -373,6 +378,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                     }
                     internalBuffer = java.nio.ByteBuffer.wrap(bytes);
                     try {
+                        LOG.info("Received some bytes");
                         writeSome();
                     } catch (IOException e) {
                         handleError(e);
@@ -381,6 +387,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
 
                 @Override
                 public void onError(Throwable t) {
+                    LOG.info("Received error from controller");
                     handleError(t);
                 }
 
@@ -392,6 +399,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                 public void onComplete() {
                     upstreamComplete = true;
                     if (internalBuffer == null) {
+                        LOG.info("Received complete from upstream");
                         completion.complete(null);
                     }
                 }
