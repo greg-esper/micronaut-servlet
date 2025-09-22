@@ -319,14 +319,17 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                         @Override
                         public void onWritePossible() throws IOException {
                             if (internalBuffer == null) {
+                                LOG.info("Write possible, requesting more from controller");
                                 s.request(1);
                             } else {
+                                LOG.info("Write possible, writing some of our current internal buffer");
                                 writeSome();
                             }
                         }
 
                         @Override
                         public void onError(Throwable t) {
+                            LOG.info("Write not possible -- Jetty threw exception", t);
                             handleError(t);
                         }
                     });
@@ -343,6 +346,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                         boolean writeBuffer = writeBufferAvailable;
                         if (writeBuffer) {
                             try {
+                                LOG.info("Writing internal buffer");
                                 outputStream.write(internalBuffer);
                             } catch (NoSuchMethodError e) {
                                 writeBuffer = false;
@@ -350,6 +354,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                             }
                         }
                         if (!writeBuffer) {
+                            LOG.info("Writing internal buffer with offsets");
                             outputStream.write(internalBuffer.array(), internalBuffer.arrayOffset() + internalBuffer.position(), internalBuffer.remaining());
                             internalBuffer.position(internalBuffer.limit());
                         }
@@ -362,13 +367,18 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                         internalBuffer = null;
                         if (closeState.getAndSet(CloseState.IDLE) == CloseState.INPUT_CLOSED) {
                             if (failure == null) {
+                                LOG.info("Done writing some, completed successfully");
                                 completion.complete(null);
                             } else {
+                                LOG.info("Done writing some, completed with failure");
                                 completion.completeExceptionally(failure);
                             }
                         } else if (outputReady) {
+                            LOG.info("Done writing some, requesting more");
                             subscription.request(1);
                         }
+                    } else {
+                        LOG.info("Done writing some, still have some left to write");
                     }
                 }
 
@@ -380,6 +390,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
                     internalBuffer = java.nio.ByteBuffer.wrap(bytes);
                     closeState.set(CloseState.UNPROCESSED_DATA);
                     try {
+                        LOG.info("Received some bytes");
                         writeSome();
                     } catch (IOException e) {
                         handleError(e);
@@ -388,6 +399,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
 
                 @Override
                 public void onError(Throwable t) {
+                    LOG.info("Received error from upstream", t);
                     handleError(t);
                 }
 
@@ -400,6 +412,7 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
 
                 @Override
                 public void onComplete() {
+                    LOG.info("Received complete from upstream");
                     if (closeState.getAndSet(CloseState.INPUT_CLOSED) == CloseState.IDLE) {
                         completion.complete(null);
                     }
