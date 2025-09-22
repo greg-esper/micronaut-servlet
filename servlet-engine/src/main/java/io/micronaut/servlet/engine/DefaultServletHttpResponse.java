@@ -340,13 +340,13 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
 
                     // both are true at the start, ensured by caller. we can't assert this here
                     // because isReady may have side effects
-                    boolean inputReady;
-                    boolean outputReady;
-                    do {
+                    boolean inputReady = internalBuffer.hasRemaining();
+                    boolean outputReady = outputStream.isReady();
+                    while (inputReady && outputReady) {
                         boolean writeBuffer = writeBufferAvailable;
                         if (writeBuffer) {
                             try {
-                                LOG.info("Writing internal buffer");
+                                LOG.info("Writing internal buffer: {}", internalBuffer);
                                 outputStream.write(internalBuffer);
                             } catch (NoSuchMethodError e) {
                                 writeBuffer = false;
@@ -361,7 +361,8 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
 
                         inputReady = internalBuffer.hasRemaining();
                         outputReady = outputStream.isReady();
-                    } while (inputReady && outputReady);
+                    }
+                    LOG.info("Finished writing for now: {}", internalBuffer);
 
                     if (!inputReady) {
                         internalBuffer = null;
@@ -405,7 +406,8 @@ public final class DefaultServletHttpResponse<B> implements ServletHttpResponse<
 
                 private void handleError(Throwable t) {
                     failure = t;
-                    if (closeState.getAndSet(CloseState.INPUT_CLOSED) == CloseState.IDLE) {
+                    final var b = closeState.getAndSet(CloseState.INPUT_CLOSED);
+                    if (b == CloseState.IDLE || b == CloseState.INPUT_CLOSED) {
                         completion.completeExceptionally(t);
                     }
                 }
